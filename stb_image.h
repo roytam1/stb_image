@@ -7531,31 +7531,22 @@ static void *stbi__pnm_load(stbi__context *s, int *x, int *y, int *comp, int req
 
    if (t == '4') {
       // P4 (PBM binary): 1 bit per pixel, MSB first, rows padded to byte boundaries
-      int rowbytes = (int)((s->img_x + 7) >> 3);
       int i, j;
+      stbi_uc b;
 
       out = (stbi_uc *) stbi__malloc_mad4(s->img_n, s->img_x, s->img_y, 1, 0);
       if (!out) return stbi__errpuc("outofmem", "Out of memory");
 
       for (i = 0; i < (int) s->img_y; ++i) {
          for (j = 0; j < (int) s->img_x; ++j) {
-            int byte_idx = j >> 3;
-            int bit_idx = 7 - (j & 7);
-            stbi_uc b;
-
-            if (byte_idx >= rowbytes) {
-               STBI_FREE(out);
-               return stbi__errpuc("bad PNM", "PNM read past row end");
+            if ((j & 7) == 0) {
+               b = stbi__get8(s);
+               if (stbi__at_eof(s)) {
+                  STBI_FREE(out);
+                  return stbi__errpuc("bad PNM", "PNM file truncated");
+               }
             }
-
-            b = stbi__get8(s);
-            if (stbi__at_eof(s)) {
-               STBI_FREE(out);
-               return stbi__errpuc("bad PNM", "PNM file truncated");
-            }
-
-            // Expand 1-bit to 8-bit: MSB first
-            out[i * s->img_x + j] = (b >> bit_idx) & 1 ? 255 : 0;
+            out[i * s->img_x + j] = ((b >> (7 - (j & 7))) & 1) ? 0 : 255;
          }
       }
    } else {
